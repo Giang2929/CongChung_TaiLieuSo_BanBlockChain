@@ -1,0 +1,2080 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlockNotary - Hệ Thống Công Chứng Tài Liệu Số Bằng Blockchain</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cyber: {
+                            900: '#070913',
+                            800: '#0f1423',
+                            700: '#171f36',
+                            accent: '#00f2fe',
+                            purple: '#8a2be2',
+                            emerald: '#10b981'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #070913;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.12) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: #e2e8f0;
+        }
+        .glass-card {
+            background: rgba(15, 20, 35, 0.78);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-card-hover:hover {
+            border-color: rgba(56, 189, 248, 0.4);
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.12);
+        }
+        .neon-border {
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #0f1423;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #38bdf8;
+        }
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .animate-mining {
+            animation: pulse-fast 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        /* Print Certificate Styling */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #certificateModalContent, #certificateModalContent * {
+                visibility: visible;
+            }
+            #certificateModalContent {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                background: white !important;
+                color: black !important;
+                box-shadow: none !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-40 glass-card border-b border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+            <!-- Brand Logo -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('notarize')">
+                <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <i class="fa-solid fa-cubes-stacked text-white text-xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-white via-cyan-200 to-purple-300 bg-clip-text text-transparent">BlockNotary</span>
+                        <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">SHA-256 Web3</span>
+                    </div>
+                    <p class="text-xs text-slate-400 hidden sm:block">Hệ Thống Công Chứng & Xác Thực Tài Liệu Số Phi Tập Trung</p>
+                </div>
+            </div>
+
+            <!-- Network & Wallet Status -->
+            <div class="flex items-center gap-3">
+                <!-- Network Indicator -->
+                <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 -ml-3"></span>
+                    <span id="networkName">Sepolia Testnet</span>
+                    <span class="text-slate-600">|</span>
+                    <span class="font-mono text-cyan-400" id="currentBlockHeight">Block #5829104</span>
+                </div>
+
+                <!-- Auth Section (Guest vs Logged In) -->
+                <div id="guestAuthButtons" class="flex items-center gap-2">
+                    <button onclick="openAuthModal('login')" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-200 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-cyan-500/40 transition-all">
+                        <i class="fa-solid fa-right-to-bracket text-cyan-400 mr-1"></i>
+                        <span>Đăng Nhập</span>
+                    </button>
+                    <button onclick="openAuthModal('register')" class="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-purple-300 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 transition-all">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <span>Đăng Ký</span>
+                    </button>
+                </div>
+
+                <div id="loggedInUserBadge" class="hidden flex items-center gap-2 bg-slate-900/95 border border-emerald-500/30 pl-3 pr-2 py-1.5 rounded-xl">
+                    <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-slate-950 font-bold text-xs" id="userAvatarInitial">
+                        U
+                    </div>
+                    <div class="hidden sm:block text-left leading-tight">
+                        <p id="headerUserName" class="text-xs font-bold text-white max-w-[130px] truncate">Người dùng</p>
+                        <p id="headerUserRole" class="text-[10px] text-emerald-400">Đã xác thực</p>
+                    </div>
+                    <button onclick="logoutUser()" title="Đăng xuất" class="ml-1 w-7 h-7 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 flex items-center justify-center transition-all">
+                        <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+                    </button>
+                </div>
+
+                <!-- Wallet Button -->
+                <button id="connectWalletBtn" onclick="openWalletModal()" class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-semibold text-sm bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 shadow-lg shadow-cyan-500/20 transition-all active:scale-95">
+                    <i class="fa-solid fa-wallet"></i>
+                    <span id="walletBtnText">Ví Demo: 0x71C9...89A2</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-800/60 bg-slate-950/40">
+            <nav class="flex space-x-1 overflow-x-auto custom-scrollbar py-2" aria-label="Tabs">
+                <button onclick="switchTab('notarize')" id="tabBtn-notarize" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                    <i class="fa-solid fa-file-shield"></i>
+                    <span>1. Công Chứng Tài Liệu</span>
+                </button>
+                <button onclick="switchTab('verify')" id="tabBtn-verify" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all whitespace-nowrap border border-transparent">
+                    <i class="fa-solid fa-magnifying-glass-check"></i>
+                    <span>2. Xác Thực Toàn Vẹn</span>
+                </button>
+                <button onclick="switchTab('explorer')" id="tabBtn-explorer" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all whitespace-nowrap border border-transparent">
+                    <i class="fa-solid fa-network-wired"></i>
+                    <span>3. Sổ Cái & Cây Merkle</span>
+                    <span id="ledgerBadge" class="ml-1 px-1.5 py-0.2 text-xs rounded-full bg-purple-500/20 text-purple-300 font-mono">0</span>
+                </button>
+                <button onclick="switchTab('contract')" id="tabBtn-contract" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all whitespace-nowrap border border-transparent">
+                    <i class="fa-solid fa-file-code"></i>
+                    <span>4. Smart Contract (Solidity)</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Quick Stats Banner -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="glass-card p-4 rounded-2xl flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl">
+                    <i class="fa-solid fa-file-signature"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400">Tài Liệu Đã Công Chứng</p>
+                    <p class="text-xl font-bold text-white font-mono" id="statTotalDocs">0</p>
+                </div>
+            </div>
+            <div class="glass-card p-4 rounded-2xl flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 text-xl">
+                    <i class="fa-solid fa-cube"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400">Thuật Toán Băm</p>
+                    <p class="text-xl font-bold text-white font-mono">SHA-256</p>
+                </div>
+            </div>
+            <div class="glass-card p-4 rounded-2xl flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xl">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400">Trạng Thái Sổ Cái</p>
+                    <p class="text-xl font-bold text-emerald-400">Bất Biến (100%)</p>
+                </div>
+            </div>
+            <div class="glass-card p-4 rounded-2xl flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 text-xl">
+                    <i class="fa-solid fa-gas-pump"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400">Phí Gas Trung Bình</p>
+                    <p class="text-xl font-bold text-white font-mono">0.00042 ETH</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== TAB 1: NOTARIZE DOCUMENT ==================== -->
+        <section id="tab-notarize" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Left Column: Upload & Input -->
+                <div class="lg:col-span-7 space-y-6">
+                    <div class="glass-card rounded-2xl p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-up text-cyan-400"></i>
+                                Chọn Tài Liệu Cần Công Chứng Số
+                            </h2>
+                            <!-- Input Mode Toggle -->
+                            <div class="flex rounded-lg bg-slate-900 p-1 border border-slate-800 text-xs">
+                                <button onclick="setNotarizeMode('file')" id="modeBtn-file" class="px-3 py-1 rounded-md bg-cyan-500/20 text-cyan-300 font-medium transition-all">Tệp tin (File)</button>
+                                <button onclick="setNotarizeMode('text')" id="modeBtn-text" class="px-3 py-1 rounded-md text-slate-400 hover:text-white transition-all">Văn bản (Text)</button>
+                            </div>
+                        </div>
+
+                        <!-- Mode 1: File Dropzone -->
+                        <div id="notarizeFileBox">
+                            <label for="fileInput" id="dropzone" class="flex flex-col items-center justify-center w-full h-56 border-2 border-dashed border-slate-700 hover:border-cyan-400 rounded-2xl cursor-pointer bg-slate-900/40 hover:bg-slate-900/80 transition-all group p-6 text-center">
+                                <div class="w-16 h-16 rounded-full bg-slate-800 group-hover:bg-cyan-500/20 flex items-center justify-center mb-3 transition-all">
+                                    <i class="fa-solid fa-file-arrow-up text-2xl text-slate-400 group-hover:text-cyan-400"></i>
+                                </div>
+                                <p class="text-sm font-medium text-slate-200 mb-1">
+                                    Kéo thả tệp vào đây hoặc <span class="text-cyan-400 underline">nhấn để chọn file</span>
+                                </p>
+                                <p class="text-xs text-slate-400 max-w-md">
+                                    Hỗ trợ mọi định dạng (PDF, DOCX, XLSX, PNG, JPG, ZIP...). Tệp được băm SHA-256 cục bộ ngay trên trình duyệt, <span class="text-emerald-400">không tải file gốc lên máy chủ</span> để đảm bảo quyền riêng tư tuyệt đối.
+                                </p>
+                                <input id="fileInput" type="file" class="hidden" onchange="handleFileSelect(event)" />
+                            </label>
+
+                            <!-- Sample Quick Test Files -->
+                            <div class="mt-4 flex flex-wrap items-center gap-2">
+                                <span class="text-xs text-slate-400"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i>Tạo nhanh tài liệu mẫu để demo:</span>
+                                <button onclick="loadSampleDoc('hopdong')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition-all">
+                                    Hợp_Đồng_Lao_Động_2025.pdf
+                                </button>
+                                <button onclick="loadSampleDoc('bangcap')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-purple-300 border border-slate-700 transition-all">
+                                    Bằng_Tốt_Nghiệp_ĐH_CNTT.pdf
+                                </button>
+                                <button onclick="loadSampleDoc('sohuutritue')" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 transition-all">
+                                    Văn_Bản_Thiết_Kế_Hệ_Thống.docx
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Mode 2: Raw Text Input -->
+                        <div id="notarizeTextBox" class="hidden space-y-3">
+                            <textarea id="rawTextInput" rows="6" oninput="handleRawTextHash()" placeholder="Nhập nội dung hợp đồng, thỏa thuận hoặc văn bản cần đóng dấu thời gian lên Blockchain..." class="w-full rounded-xl bg-slate-900/90 border border-slate-700 focus:border-cyan-400 focus:outline-none p-4 text-sm text-slate-200 font-mono"></textarea>
+                            <p class="text-xs text-slate-400">Mỗi ký tự hoặc dấu cách thay đổi sẽ lập tức tạo ra một mã băm SHA-256 hoàn toàn khác biệt (Hiệu ứng thác đổ - Avalanche Effect).</p>
+                        </div>
+
+                        <!-- Metadata Form -->
+                        <div class="mt-6 pt-6 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1.5">Tên Người Sở Hữu / Cơ Quan Công Chứng *</label>
+                                <div class="relative">
+                                    <i class="fa-solid fa-user-shield absolute left-3.5 top-3 text-slate-500 text-sm"></i>
+                                    <input type="text" id="ownerNameInput" value="Nguyễn Văn An - Phòng Công Chứng Số" placeholder="Nhập tên cá nhân hoặc tổ chức..." class="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-700 focus:border-cyan-400 focus:outline-none text-sm text-white">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1.5">Phân Loại Tài Liệu</label>
+                                <select id="docCategoryInput" class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 focus:border-cyan-400 focus:outline-none text-sm text-white">
+                                    <option value="Hợp đồng kinh tế / Pháp lý">Hợp đồng kinh tế / Pháp lý</option>
+                                    <option value="Văn bằng / Chứng chỉ học thuật">Văn bằng / Chứng chỉ học thuật</option>
+                                    <option value="Bản quyền Sở hữu trí tuệ">Bản quyền Sở hữu trí tuệ</option>
+                                    <option value="Giấy chứng nhận Quyền sử dụng đất">Giấy chứng nhận Quyền sử dụng đất</option>
+                                    <option value="Hồ sơ Y tế / Bảo hiểm">Hồ sơ Y tế / Bảo hiểm</option>
+                                    <option value="Tài liệu nội bộ khác">Tài liệu nội bộ khác</option>
+                                </select>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-medium text-slate-300 mb-1.5">Ghi Chú Đính Kèm Lên Chuỗi Khối (On-chain Metadata)</label>
+                                <input type="text" id="docNoteInput" placeholder="VD: Bản gốc đã đối chiếu chữ ký số, có hiệu lực từ ngày ký..." class="w-full px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 focus:border-cyan-400 focus:outline-none text-sm text-white">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Cryptographic Hash Preview & Submit -->
+                <div class="lg:col-span-5 space-y-6">
+                    <div class="glass-card rounded-2xl p-6 border border-cyan-500/20 flex flex-col justify-between h-full">
+                        <div>
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-fingerprint text-purple-400"></i>
+                                    Dấu Vân Tay Số (Cryptographic Hash)
+                                </h2>
+                                <span id="hashStatusBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400">Chưa có tệp</span>
+                            </div>
+
+                            <!-- File Details Box -->
+                            <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3 mb-5">
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-slate-400">Tên tài liệu:</span>
+                                    <span id="previewFileName" class="font-medium text-white truncate max-w-[220px]">---</span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-slate-400">Kích thước & Định dạng:</span>
+                                    <span id="previewFileSize" class="font-mono text-xs text-slate-300">---</span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-slate-400">Địa chỉ Ví ký số:</span>
+                                    <span id="previewWallet" class="font-mono text-xs text-cyan-400">0x71C...89A2</span>
+                                </div>
+                            </div>
+
+                            <!-- SHA-256 Output Box -->
+                            <div class="mb-6">
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="text-xs font-semibold uppercase tracking-wider text-cyan-400">Mã Băm SHA-256 (256-bit / 64 ký tự Hex)</label>
+                                    <button onclick="copyText('previewSha256')" class="text-xs text-slate-400 hover:text-cyan-400 flex items-center gap-1 transition-all">
+                                        <i class="fa-regular fa-copy"></i> Sao chép
+                                    </button>
+                                </div>
+                                <div class="relative p-3.5 rounded-xl bg-slate-950 border border-cyan-500/30 font-mono text-xs text-emerald-400 break-all leading-relaxed select-all min-h-[68px] flex items-center" id="previewSha256">
+                                    Vui lòng chọn một tệp hoặc nhập văn bản để tính toán mã băm SHA-256...
+                                </div>
+                            </div>
+
+                            <!-- Mining Progress Box (Hidden by default) -->
+                            <div id="miningProgressBox" class="hidden mb-6 p-4 rounded-xl bg-cyan-950/40 border border-cyan-500/40 space-y-2">
+                                <div class="flex items-center justify-between text-xs font-medium text-cyan-300">
+                                    <span class="flex items-center gap-2">
+                                        <i class="fa-solid fa-gear fa-spin text-cyan-400"></i>
+                                        <span id="miningStepText">Đang khởi tạo giao dịch Smart Contract...</span>
+                                    </span>
+                                    <span id="miningPercent" class="font-mono">25%</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full bg-slate-900 overflow-hidden">
+                                    <div id="miningBar" class="h-full bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 transition-all duration-300" style="width: 25%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="space-y-3">
+                            <button id="notarizeSubmitBtn" onclick="notarizeToBlockchain()" disabled class="w-full py-3.5 px-6 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all bg-slate-800 text-slate-500 cursor-not-allowed">
+                                <i class="fa-solid fa-cubes"></i>
+                                <span>Ghi Nhận Lên Blockchain (Notarize)</span>
+                            </button>
+                            <p class="text-[11px] text-slate-400 text-center">
+                                <i class="fa-solid fa-lock text-emerald-400 mr-1"></i>
+                                Khi đã ghi lên chuỗi khối, dấu vân tay SHA-256 và nhãn thời gian (Timestamp) sẽ tồn tại vĩnh viễn và không thể bị sửa đổi.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Notarization Success Card (Dynamic) -->
+            <div id="latestTxBanner" class="hidden glass-card rounded-2xl p-6 border border-emerald-500/40 bg-emerald-950/10">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-2xl shrink-0">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="text-base font-bold text-emerald-400">Công Chứng Tài Liệu Lên Blockchain Thành Công!</h3>
+                                <span id="latestTxBlock" class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Block #---</span>
+                            </div>
+                            <p class="text-xs text-slate-300 mt-1">
+                                Mã giao dịch (TxHash): <span id="latestTxHash" class="font-mono text-cyan-400 break-all">0x...</span>
+                            </p>
+                            <p class="text-xs text-slate-400 mt-0.5">
+                                Mã băm tài liệu (SHA-256): <span id="latestDocHash" class="font-mono text-slate-300 break-all">...</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <button onclick="openCertificateModal(latestNotarizedRecordId)" class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all">
+                            <i class="fa-solid fa-award"></i>
+                            Xem & In Chứng Chỉ Số
+                        </button>
+                        <button onclick="switchTab('verify')" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs flex items-center gap-2 border border-slate-700 transition-all">
+                            <i class="fa-solid fa-magnifying-glass-check"></i>
+                            Kiểm Tra Xác Thực
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 2: VERIFY DOCUMENT ==================== -->
+        <section id="tab-verify" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left: Upload or Paste Hash to Verify -->
+                <div class="lg:col-span-6 space-y-6">
+                    <div class="glass-card rounded-2xl p-6">
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2 mb-2">
+                            <i class="fa-solid fa-shield-check text-cyan-400"></i>
+                            Xác Thực Tính Toàn Vẹn Của Tài Liệu
+                        </h2>
+                        <p class="text-xs text-slate-400 mb-5">
+                            Tải lên tệp tin cần kiểm tra hoặc dán mã SHA-256 / Transaction Hash. Hệ thống sẽ đối chiếu trực tiếp với dữ liệu trên Sổ cái Blockchain.
+                        </p>
+
+                        <!-- Dropzone for verification -->
+                        <label for="verifyFileInput" class="flex flex-col items-center justify-center w-full h-44 border-2 border-dashed border-slate-700 hover:border-cyan-400 rounded-2xl cursor-pointer bg-slate-900/40 hover:bg-slate-900/80 transition-all group p-6 text-center mb-5">
+                            <div class="w-12 h-12 rounded-full bg-slate-800 group-hover:bg-cyan-500/20 flex items-center justify-center mb-2 transition-all">
+                                <i class="fa-solid fa-file-circle-question text-xl text-slate-400 group-hover:text-cyan-400"></i>
+                            </div>
+                            <p class="text-sm font-medium text-slate-200">
+                                Chọn hoặc kéo thả tệp cần đối chiếu vào đây
+                            </p>
+                            <p class="text-xs text-slate-400 mt-1" id="verifySelectedFileName">
+                                Nếu tệp bị chỉnh sửa dù chỉ 1 dấu chấm, mã SHA-256 sẽ thay đổi và cảnh báo giả mạo ngay lập tức.
+                            </p>
+                            <input id="verifyFileInput" type="file" class="hidden" onchange="handleVerifyFileSelect(event)" />
+                        </label>
+
+                        <div class="relative flex py-2 items-center mb-4">
+                            <div class="flex-grow border-t border-slate-800"></div>
+                            <span class="flex-shrink mx-4 text-xs text-slate-500 uppercase">Hoặc tra cứu bằng mã</span>
+                            <div class="flex-grow border-t border-slate-800"></div>
+                        </div>
+
+                        <!-- Search by SHA256 or TxHash -->
+                        <div class="space-y-3">
+                            <label class="block text-xs font-medium text-slate-300">Nhập Mã Băm Tài Liệu (SHA-256) hoặc Mã Giao Dịch (TxHash)</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="verifyHashInput" placeholder="Dán mã SHA-256 (64 ký tự) hoặc TxHash (0x...)" class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-cyan-400 focus:outline-none text-xs font-mono text-white">
+                                <button onclick="verifyByHashInput()" class="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shrink-0 transition-all">
+                                    Tra Cứu
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Demo Tamper Simulation Buttons -->
+                        <div class="mt-6 pt-5 border-t border-slate-800/80">
+                            <p class="text-xs text-slate-400 mb-2.5"><i class="fa-solid fa-flask text-purple-400 mr-1"></i>Kịch bản mô phỏng nhanh cho thuyết trình:</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="simulateVerification(true)" class="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-all">
+                                    <i class="fa-solid fa-check mr-1"></i> Test File Nguyên Vẹn
+                                </button>
+                                <button onclick="simulateVerification(false)" class="text-xs px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all">
+                                    <i class="fa-solid fa-triangle-exclamation mr-1"></i> Test File Bị Sửa 1 Byte
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Verification Result Display -->
+                <div class="lg:col-span-6">
+                    <!-- Default Waiting State -->
+                    <div id="verifyResultDefault" class="glass-card rounded-2xl p-8 h-full flex flex-col items-center justify-center text-center border border-slate-800">
+                        <div class="w-20 h-20 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600 text-3xl mb-4">
+                            <i class="fa-solid fa-scale-balanced"></i>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-300 mb-1">Chưa Có Dữ Liệu Đối Chiếu</h3>
+                        <p class="text-xs text-slate-400 max-w-sm">
+                            Hãy tải lên một tài liệu hoặc nhập mã băm ở cột bên trái để kiểm tra xem tài liệu có khớp với bản gốc đã lưu trên Blockchain hay không.
+                        </p>
+                    </div>
+
+                    <!-- SUCCESS Result State -->
+                    <div id="verifyResultSuccess" class="hidden glass-card rounded-2xl p-6 h-full border-2 border-emerald-500/60 bg-gradient-to-b from-emerald-950/30 to-slate-950/80">
+                        <div class="flex items-center gap-4 pb-5 border-b border-emerald-500/20">
+                            <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-3xl shrink-0">
+                                <i class="fa-solid fa-shield-check"></i>
+                            </div>
+                            <div>
+                                <span class="text-[11px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Verified On-Chain</span>
+                                <h3 class="text-lg font-extrabold text-emerald-400 mt-1">XÁC THỰC THÀNH CÔNG - TÀI LIỆU NGUYÊN VẸN</h3>
+                                <p class="text-xs text-slate-300">Mã băm SHA-256 khớp 100% với bản ghi bất biến trên Sổ cái Blockchain.</p>
+                            </div>
+                        </div>
+
+                        <div class="py-5 space-y-3 text-xs">
+                            <div class="flex justify-between py-2 border-b border-slate-800/80">
+                                <span class="text-slate-400">Tên tài liệu gốc:</span>
+                                <span id="vSuccessDocName" class="font-bold text-white">---</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-slate-800/80">
+                                <span class="text-slate-400">Phân loại:</span>
+                                <span id="vSuccessCategory" class="text-cyan-300">---</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-slate-800/80">
+                                <span class="text-slate-400">Chủ sở hữu / Công chứng viên:</span>
+                                <span id="vSuccessOwner" class="font-medium text-white">---</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-slate-800/80">
+                                <span class="text-slate-400">Địa chỉ ví đăng ký:</span>
+                                <span id="vSuccessWallet" class="font-mono text-cyan-400">---</span>
+                            </div>
+                            <div class="flex justify-between py-2 border-b border-slate-800/80">
+                                <span class="text-slate-400">Khối (Block) & Thời gian:</span>
+                                <span id="vSuccessTime" class="font-mono text-emerald-300">---</span>
+                            </div>
+                            <div class="py-2">
+                                <span class="text-slate-400 block mb-1">Mã băm SHA-256 đối chiếu:</span>
+                                <div id="vSuccessHash" class="p-2.5 rounded-lg bg-slate-950 border border-emerald-500/30 font-mono text-emerald-400 break-all">---</div>
+                            </div>
+                            <div class="py-1">
+                                <span class="text-slate-400 block mb-1">Mã giao dịch (Transaction Hash):</span>
+                                <div id="vSuccessTx" class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-cyan-400 break-all">---</div>
+                            </div>
+                        </div>
+
+                        <div class="pt-2 flex gap-3">
+                            <button id="vSuccessCertBtn" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 transition-all">
+                                <i class="fa-solid fa-certificate"></i>
+                                Mở Chứng Chỉ Công Chứng Số
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- FAILED Result State -->
+                    <div id="verifyResultFailed" class="hidden glass-card rounded-2xl p-6 h-full border-2 border-rose-500/60 bg-gradient-to-b from-rose-950/30 to-slate-950/80 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center gap-4 pb-5 border-b border-rose-500/20">
+                                <div class="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 text-3xl shrink-0">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                </div>
+                                <div>
+                                    <span class="text-[11px] font-mono uppercase px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">Hash Mismatch / Not Found</span>
+                                    <h3 class="text-lg font-extrabold text-rose-400 mt-1">CẢNH BÁO: TÀI LIỆU KHÔNG KHỚP HOẶC CHƯA CÔNG CHỨNG</h3>
+                                    <p class="text-xs text-slate-300">Không tìm thấy mã băm này trên Sổ cái Blockchain.</p>
+                                </div>
+                            </div>
+
+                            <div class="py-5 space-y-4 text-xs">
+                                <div class="p-4 rounded-xl bg-rose-950/40 border border-rose-500/30 text-rose-200 space-y-1.5">
+                                    <p class="font-bold text-rose-300"><i class="fa-solid fa-circle-info mr-1"></i> Cảnh báo Hiệu ứng Thác đổ (Avalanche Effect):</p>
+                                    <ul class="list-disc list-inside space-y-1 text-slate-300">
+                                        <li>TÀI LIỆU ĐÃ BỊ CHỈNH SỬA / GIẢ MẠO (dù chỉ thay đổi 1 byte hoặc 1 dấu chấm) so với bản gốc đã ký.</li>
+                                        <li>Hoặc tài liệu này chưa từng được công chứng lên hệ thống BlockNotary.</li>
+                                    </ul>
+                                </div>
+
+                                <div>
+                                    <span class="text-slate-400 block mb-1">Mã băm SHA-256 của tệp vừa kiểm tra:</span>
+                                    <div id="vFailedHash" class="p-3 rounded-lg bg-slate-950 border border-rose-500/40 font-mono text-rose-400 break-all">---</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onclick="switchTab('notarize')" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs flex items-center justify-center gap-2 border border-slate-700 transition-all">
+                            <i class="fa-solid fa-plus"></i>
+                            Đăng Ký Công Chứng Mới Cho Tài Liệu Này
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 3: BLOCKCHAIN EXPLORER & MERKLE TREE ==================== -->
+        <section id="tab-explorer" class="tab-content hidden space-y-8">
+            
+            <!-- Chain of Blocks Visualizer (Genesis Block #0 -> Latest Block) -->
+            <div class="glass-card rounded-2xl p-6 border border-cyan-500/20">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-link text-cyan-400"></i>
+                                Chuỗi Khối Liên Kết (Từ Genesis Block #0 Đến Hiện Tại)
+                            </h2>
+                            <span class="text-xs px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono">PrevHash Linked</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">
+                            Mỗi khối lưu trữ <strong>Previous Block Hash</strong> trỏ về khối liền trước, bắt đầu từ <strong>Genesis Block #0</strong>, tạo thành chuỗi bất biến không thể chèn hay sửa dữ liệu quá khứ.
+                        </p>
+                    </div>
+                </div>
+
+                <div id="blockchainChainContainer" class="flex items-stretch gap-4 overflow-x-auto custom-scrollbar pb-3">
+                    <!-- Rendered dynamically by JS -->
+                </div>
+            </div>
+
+            <!-- Merkle Tree Visualizer Section -->
+            <div class="glass-card rounded-2xl p-6 border border-purple-500/20">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-sitemap text-purple-400"></i>
+                                Cấu Trúc Cây Merkle (Merkle Tree Proof)
+                            </h2>
+                            <span class="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 font-mono">Cryptographic Integrity</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">
+                            Cây Merkle gom nhóm tất cả mã băm tài liệu (Leaf Nodes) trong sổ cái thành một <strong class="text-cyan-300">Merkle Root</strong> duy nhất lưu trong Block Header. Bất kỳ thay đổi nào ở một tài liệu lá sẽ làm thay đổi toàn bộ nhánh lên tới Merkle Root.
+                        </p>
+                    </div>
+                    <button onclick="renderMerkleTree()" class="px-4 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 text-xs font-semibold flex items-center gap-2 self-start transition-all">
+                        <i class="fa-solid fa-rotate"></i> Cập Nhật Cây Merkle
+                    </button>
+                </div>
+
+                <!-- Merkle Tree Visual Diagram -->
+                <div id="merkleTreeContainer" class="p-5 rounded-xl bg-slate-950/90 border border-slate-800 overflow-x-auto">
+                    <!-- Rendered dynamically by JS -->
+                </div>
+            </div>
+
+            <!-- Blockchain Ledger Table -->
+            <div class="glass-card rounded-2xl p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-cubes-stacked text-cyan-400"></i>
+                            Sổ Cái Giao Dịch Công Chứng (Immutable Blockchain Ledger)
+                        </h2>
+                        <p class="text-xs text-slate-400">Danh sách toàn bộ các khối và chứng thư số đã được đóng dấu thời gian.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="relative">
+                            <i class="fa-solid fa-search absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                            <input type="text" id="explorerSearchInput" oninput="renderExplorerTable()" placeholder="Lọc theo tên, SHA-256, ví..." class="pl-8 pr-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:border-cyan-400 focus:outline-none">
+                        </div>
+                        <button onclick="resetDemoLedger()" title="Khôi phục dữ liệu mẫu" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700 transition-all">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Reset Mẫu
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-[11px] font-semibold uppercase tracking-wider text-slate-400 bg-slate-900/60">
+                                <th class="py-3.5 px-4 rounded-tl-xl">Block</th>
+                                <th class="py-3.5 px-4">Tài Liệu & Phân Loại</th>
+                                <th class="py-3.5 px-4">Mã Băm SHA-256 (Document Hash)</th>
+                                <th class="py-3.5 px-4">Người Công Chứng / Ví</th>
+                                <th class="py-3.5 px-4">Thời Gian (Timestamp)</th>
+                                <th class="py-3.5 px-4 text-right rounded-tr-xl">Chứng Chỉ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="explorerTableBody" class="divide-y divide-slate-800/60 text-xs">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 4: SMART CONTRACT SOLIDITY ==================== -->
+        <section id="tab-contract" class="tab-content hidden space-y-6">
+            <div class="glass-card rounded-2xl p-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                                <i class="fa-solid fa-code text-cyan-400"></i>
+                                Hợp Đồng Thông Minh: DocumentNotary.sol
+                            </h2>
+                            <span class="text-xs px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-mono">Solidity ^0.8.20</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">
+                            Mã nguồn Smart Contract chuẩn EVM (Ethereum / Polygon / BNB Chain) dùng để triển khai trên Remix IDE hoặc Hardhat cho báo cáo đồ án.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="copySolidityCode()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all">
+                            <i class="fa-regular fa-copy"></i> Sao Chép Mã Solidity
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Architecture Explanation Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                        <p class="text-xs font-bold text-cyan-400 mb-1"><i class="fa-solid fa-database mr-1"></i> Tối Ưu Chi Phí Lưu Trữ (Off-chain vs On-chain)</p>
+                        <p class="text-xs text-slate-400">Không lưu trực tiếp tệp PDF/DOCX nặng lên Blockchain để tránh phí Gas cao. Chỉ lưu chuỗi băm <code>bytes32 docHash</code> (SHA-256) cùng Metadata.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                        <p class="text-xs font-bold text-purple-400 mb-1"><i class="fa-solid fa-bolt mr-1"></i> Độ Phức Tạp Tra Cứu O(1)</p>
+                        <p class="text-xs text-slate-400">Sử dụng cấu trúc <code>mapping(bytes32 => Record)</code> giúp việc kiểm tra tài liệu đã công chứng hay chưa diễn ra tức thì mà không cần duyệt vòng lặp.</p>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                        <p class="text-xs font-bold text-emerald-400 mb-1"><i class="fa-solid fa-bell mr-1"></i> Sự Kiện Truy Vết (Event Logs)</p>
+                        <p class="text-xs text-slate-400">Phát sự kiện <code>event DocumentNotarized</code> với từ khóa <code>indexed</code> để ứng dụng Web3 Frontend lắng nghe và lọc lịch sử dễ dàng.</p>
+                    </div>
+                </div>
+
+                <!-- Solidity Code Block -->
+                <div class="relative rounded-2xl bg-slate-950 border border-slate-800 p-5 overflow-x-auto custom-scrollbar">
+<pre id="solidityCodeBlock" class="font-mono text-xs leading-relaxed text-slate-200 select-all">// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+/**
+ * @title BlockNotary - Hệ Thống Công Chứng Tài Liệu Số Bằng Blockchain
+ * @notice Lưu trữ dấu vân tay mật mã học SHA-256 của tài liệu và xác thực tính toàn vẹn
+ */
+contract DocumentNotary {
+
+    // Cấu trúc lưu trữ thông tin một bản ghi công chứng
+    struct Record {
+        bytes32 docHash;        // Mã băm SHA-256 của tài liệu (32 bytes)
+        string fileName;        // Tên tài liệu gốc
+        string category;        // Phân loại tài liệu (Hợp đồng, Văn bằng...)
+        string ownerName;       // Tên chủ sở hữu / Cơ quan công chứng
+        string note;            // Ghi chú đính kèm
+        address notarizedBy;    // Địa chỉ ví Web3 thực hiện ký công chứng
+        uint256 timestamp;      // Thời gian đóng dấu khối (Unix Block Timestamp)
+        uint256 blockNumber;    // Số thứ tự Block ghi nhận
+        bool isRegistered;      // Cờ đánh dấu tồn tại
+    }
+
+    // Mapping từ mã băm SHA-256 sang bản ghi chi tiết (Tra cứu O(1))
+    mapping(bytes32 => Record) private records;
+
+    // Danh sách tất cả các mã băm đã công chứng để thống kê Sổ cái
+    bytes32[] public allDocHashes;
+
+    // Sự kiện phát ra khi một tài liệu mới được công chứng thành công
+    event DocumentNotarized(
+        bytes32 indexed docHash,
+        address indexed notarizedBy,
+        string fileName,
+        string ownerName,
+        uint256 timestamp,
+        uint256 blockNumber
+    );
+
+    // Lỗi tùy chỉnh tiết kiệm Gas
+    error DocumentAlreadyNotarized(bytes32 docHash, uint256 existingTimestamp);
+    error InvalidDocumentHash();
+
+    /**
+     * @dev Ghi nhận mã băm tài liệu mới lên chuỗi khối
+     * @param _docHash Mã băm SHA-256 của tài liệu
+     * @param _fileName Tên tệp gốc
+     * @param _category Phân loại hồ sơ
+     * @param _ownerName Tên người sở hữu
+     * @param _note Ghi chú bổ sung
+     */
+    function notarizeDocument(
+        bytes32 _docHash,
+        string calldata _fileName,
+        string calldata _category,
+        string calldata _ownerName,
+        string calldata _note
+    ) external {
+        if (_docHash == bytes32(0)) {
+            revert InvalidDocumentHash();
+        }
+        // Đảm bảo một tài liệu không bị ghi đè mốc thời gian ban đầu
+        if (records[_docHash].isRegistered) {
+            revert DocumentAlreadyNotarized(_docHash, records[_docHash].timestamp);
+        }
+
+        records[_docHash] = Record({
+            docHash: _docHash,
+            fileName: _fileName,
+            category: _category,
+            ownerName: _ownerName,
+            note: _note,
+            notarizedBy: msg.sender,
+            timestamp: block.timestamp,
+            blockNumber: block.number,
+            isRegistered: true
+        });
+
+        allDocHashes.push(_docHash);
+
+        emit DocumentNotarized(
+            _docHash,
+            msg.sender,
+            _fileName,
+            _ownerName,
+            block.timestamp,
+            block.number
+        );
+    }
+
+    /**
+     * @dev Xác thực tính toàn vẹn của một tài liệu dựa trên mã băm SHA-256
+     * @param _docHash Mã băm SHA-256 cần kiểm tra
+     * @return isVerified Trạng thái tồn tại và nguyên vẹn
+     * @return record Chi tiết bản ghi trên Blockchain
+     */
+    function verifyDocument(bytes32 _docHash)
+        external
+        view
+        returns (bool isVerified, Record memory record)
+    {
+        Record memory rec = records[_docHash];
+        return (rec.isRegistered, rec);
+    }
+
+    /**
+     * @dev Trả về tổng số tài liệu đã được công chứng trên Smart Contract
+     */
+    function getTotalNotarizedDocuments() external view returns (uint256) {
+        return allDocHashes.length;
+    }
+}</pre>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== MODAL 1: DIGITAL CERTIFICATE ==================== -->
+    <div id="certificateModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+        <div id="certificateModalContent" class="bg-slate-900 border-2 border-cyan-500/50 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative my-8">
+            <!-- Decorative Corner Accents -->
+            <div class=" flex items-center justify-between border-b border-slate-800 pb-5 mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center text-white text-2xl shadow-lg">
+                        <i class="fa-solid fa-award"></i>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-mono uppercase tracking-widest text-cyan-400 block">Blockchain Timestamped Proof</span>
+                        <h2 class="text-xl font-extrabold text-white">CHỨNG CHỈ CÔNG CHỨNG TÀI LIỆU SỐ</h2>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <span class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold">
+                        <i class="fa-solid fa-check-circle mr-1"></i> HỢP LỆ & BẤT BIẾN
+                    </span>
+                    <p class="text-[11px] font-mono text-slate-400 mt-1" id="certIdDisplay">ID: #BN-0001</p>
+                </div>
+            </div>
+
+            <!-- Certificate Body -->
+            <div class="space-y-4 text-xs sm:text-sm">
+                <p class="text-slate-300 leading-relaxed">
+                    Hệ thống phi tập trung <strong>BlockNotary</strong> chứng nhận tài liệu điện tử dưới đây đã được băm mật mã học theo chuẩn <strong>SHA-256</strong> và ghi nhận vĩnh viễn vào Sổ cái Blockchain:
+                </p>
+
+                <div class="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2.5">
+                    <div class="flex flex-col sm:flex-row sm:justify-between">
+                        <span class="text-slate-400">Tên tài liệu:</span>
+                        <span class="font-bold text-white" id="certFileName">---</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:justify-between">
+                        <span class="text-slate-400">Phân loại hồ sơ:</span>
+                        <span class="text-cyan-300 font-medium" id="certCategory">---</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:justify-between">
+                        <span class="text-slate-400">Kích thước tệp:</span>
+                        <span class="font-mono text-slate-300" id="certFileSize">---</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:justify-between">
+                        <span class="text-slate-400">Chủ sở hữu / Đơn vị công chứng:</span>
+                        <span class="font-bold text-emerald-400" id="certOwner">---</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:justify-between">
+                        <span class="text-slate-400">Ghi chú On-chain:</span>
+                        <span class="text-slate-300 italic" id="certNote">---</span>
+                    </div>
+                </div>
+
+                <!-- Cryptographic Proofs -->
+                <div class="p-4 rounded-2xl bg-slate-950/90 border border-cyan-500/30 space-y-3">
+                    <div>
+                        <span class="text-[11px] font-mono uppercase text-cyan-400 block mb-1">Dấu Vân Tay Số Tài Liệu (SHA-256 Document Hash):</span>
+                        <p id="certDocHash" class="font-mono text-xs text-emerald-400 break-all bg-slate-900 p-2.5 rounded-lg border border-slate-800">---</p>
+                    </div>
+                    <div>
+                        <span class="text-[11px] font-mono uppercase text-purple-400 block mb-1">Mã Giao Dịch Chuỗi Khối (Transaction Hash):</span>
+                        <p id="certTxHash" class="font-mono text-xs text-cyan-300 break-all bg-slate-900 p-2.5 rounded-lg border border-slate-800">---</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-xs">
+                        <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                            <span class="text-slate-400 block text-[10px]">Số Khối & Phí Gas</span>
+                            <span id="certBlockNumber" class="font-mono font-bold text-white">---</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                            <span class="text-slate-400 block text-[10px]">Thời Gian Đóng Dấu</span>
+                            <span id="certTimestamp" class="font-mono font-bold text-white">---</span>
+                        </div>
+                        <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                            <span class="text-slate-400 block text-[10px]">Ví Ký Số (Signer)</span>
+                            <span id="certWallet" class="font-mono font-bold text-cyan-400 truncate block">---</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer Buttons -->
+            <div class="mt-6 pt-5 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 no-print">
+                <div class="flex items-center gap-2 text-xs text-slate-400">
+                    <i class="fa-solid fa-qrcode text-cyan-400 text-lg"></i>
+                    <span>Có thể tra cứu mã SHA-256 bất kỳ lúc nào tại Tab Xác Thực</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="downloadCertificateJSON()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 font-semibold text-xs flex items-center gap-2 transition-all">
+                        <i class="fa-solid fa-download"></i> Tải Chứng Thư (.JSON)
+                    </button>
+                    <button onclick="window.print()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-2 transition-all">
+                        <i class="fa-solid fa-print"></i> In / Lưu PDF
+                    </button>
+                    <button onclick="closeCertificateModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-xs transition-all">
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL 2: WALLET CONNECTION ==================== -->
+    <div id="walletModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass-card rounded-3xl max-w-md w-full p-6 border border-slate-700 shadow-2xl">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-wallet text-cyan-400"></i>
+                    Quản Lý Kết Nối Ví Web3
+                </h3>
+                <button onclick="closeWalletModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                    <span class="text-xs text-slate-400 block mb-1">Địa chỉ ví đang hoạt động:</span>
+                    <p id="modalCurrentWallet" class="font-mono text-xs text-cyan-400 break-all font-semibold">---</p>
+                </div>
+
+                <!-- Option 1: Real MetaMask -->
+                <button onclick="connectRealMetaMask()" class="w-full p-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-amber-500/50 flex items-center justify-between transition-all group">
+                    <div class="flex items-center gap-3 text-left">
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-lg">
+                            <i class="fa-brands fa-ethereum"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-white group-hover:text-amber-300">Kết nối Ví MetaMask Thật</p>
+                            <p class="text-xs text-slate-400">Sử dụng tiện ích trình duyệt (window.ethereum)</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-slate-500 group-hover:text-amber-400"></i>
+                </button>
+
+                <!-- Option 2: Generate Simulated Demo Wallet -->
+                <button onclick="generateSimulatedWallet()" class="w-full p-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-cyan-500/50 flex items-center justify-between transition-all group">
+                    <div class="flex items-center gap-3 text-left">
+                        <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-lg">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-white group-hover:text-cyan-300">Dùng Ví Demo (Sepolia Testnet)</p>
+                            <p class="text-xs text-slate-400">Sinh địa chỉ ví ngẫu nhiên để demo không cần cài extension</p>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-rotate text-slate-500 group-hover:text-cyan-400"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL 3: AUTHENTICATION (LOGIN / REGISTER) ==================== -->
+    <div id="authModal" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+        <div class="glass-card rounded-3xl max-w-md w-full p-6 sm:p-7 border border-cyan-500/30 shadow-2xl relative my-8">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-5">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center text-white text-base">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white">Định Danh Tài Khoản BlockNotary</h3>
+                        <p class="text-[11px] text-slate-400">Liên kết hồ sơ pháp lý với địa chỉ ví Web3</p>
+                    </div>
+                </div>
+                <button onclick="closeAuthModal()" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Auth Mode Switcher Tabs -->
+            <div class="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-900 border border-slate-800 mb-5 text-xs font-semibold">
+                <button type="button" id="authTab-login" onclick="switchAuthTab('login')" class="py-2 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition-all">
+                    Đăng Nhập
+                </button>
+                <button type="button" id="authTab-register" onclick="switchAuthTab('register')" class="py-2 rounded-lg text-slate-400 hover:text-white transition-all">
+                    Đăng Ký Mới
+                </button>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Email đăng nhập *</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-envelope absolute left-3.5 top-3 text-slate-500 text-xs"></i>
+                        <input type="email" id="loginEmailInput" required placeholder="vd: congchungvien@blocknotary.vn" class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-cyan-400 focus:outline-none text-xs text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Mật khẩu *</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-3.5 top-3 text-slate-500 text-xs"></i>
+                        <input type="password" id="loginPasswordInput" required placeholder="Nhập mật khẩu của bạn..." class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 focus:border-cyan-400 focus:outline-none text-xs text-white">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all">
+                    <i class="fa-solid fa-right-to-bracket mr-1"></i> Đăng Nhập Hệ Thống
+                </button>
+
+                <!-- Quick Demo Account Login -->
+                <div class="pt-3 border-t border-slate-800/80">
+                    <button type="button" onclick="quickDemoLogin()" class="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-emerald-500/40 text-xs text-emerald-300 font-medium flex items-center justify-center gap-2 transition-all">
+                        <i class="fa-solid fa-bolt text-amber-400"></i>
+                        <span>Đăng Nhập Nhanh Tài Khoản Công Chứng Viên Mẫu</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- REGISTER FORM -->
+            <form id="registerForm" onsubmit="handleRegisterSubmit(event)" class="hidden space-y-3.5">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Họ và Tên / Tên Tổ Chức *</label>
+                    <input type="text" id="regFullNameInput" required placeholder="VD: Nguyễn Văn An / Công ty TechCorp" class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 focus:border-purple-400 focus:outline-none text-xs text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Vai trò định danh trên Blockchain *</label>
+                    <select id="regRoleInput" class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 focus:border-purple-400 focus:outline-none text-xs text-white">
+                        <option value="Cá nhân / Chủ sở hữu tài liệu">Cá nhân / Chủ sở hữu tài liệu</option>
+                        <option value="Công chứng viên / Văn phòng công chứng">Công chứng viên / Văn phòng công chứng</option>
+                        <option value="Doanh nghiệp / Tổ chức giáo dục">Doanh nghiệp / Tổ chức giáo dục</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Email đăng ký *</label>
+                    <input type="email" id="regEmailInput" required placeholder="email@domain.com" class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 focus:border-purple-400 focus:outline-none text-xs text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Mật khẩu *</label>
+                        <input type="password" id="regPasswordInput" required minlength="6" placeholder="Tối thiểu 6 ký tự" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 focus:border-purple-400 focus:outline-none text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Xác nhận mật khẩu *</label>
+                        <input type="password" id="regConfirmPasswordInput" required minlength="6" placeholder="Nhập lại mật khẩu" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 focus:border-purple-400 focus:outline-none text-xs text-white">
+                    </div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-[11px] text-slate-300 flex items-start gap-2">
+                    <i class="fa-solid fa-key text-purple-400 mt-0.5"></i>
+                    <span>Hệ thống sẽ tự động cấp phát một cặp khóa & địa chỉ ví Web3 Sepolia gắn liền với tài khoản của bạn.</span>
+                </div>
+                <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-cyan-500 hover:from-purple-400 hover:to-cyan-400 text-slate-950 font-bold text-xs shadow-lg shadow-purple-500/20 transition-all">
+                    <i class="fa-solid fa-user-plus mr-1"></i> Hoàn Tất Đăng Ký & Tạo Ví
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastBox" class="fixed bottom-5 right-5 z-50 hidden transform transition-all duration-300">
+        <div class="glass-card px-4 py-3 rounded-xl border border-cyan-500/40 shadow-xl flex items-center gap-3 text-xs font-medium text-white">
+            <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+            <span id="toastMessage">Thông báo hệ thống</span>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/80 py-6 mt-12 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p><strong class="text-slate-300">BlockNotary</strong> — Ứng Dụng Công Chứng & Xác Thực Tài Liệu Số Bằng Blockchain (SHA-256 & Merkle Tree)</p>
+            <p class="font-mono text-[11px] text-slate-400">Web Crypto API • EVM Smart Contract • Zero-Knowledge Privacy</p>
+        </div>
+    </footer>
+
+    <!-- ==================== APPLICATION LOGIC ==================== -->
+    <script>
+        // --- STATE MANAGEMENT ---
+        const STORAGE_KEY = 'blocknotary_ledger_v1';
+        const USERS_STORAGE_KEY = 'blocknotary_users_v1';
+        const SESSION_STORAGE_KEY = 'blocknotary_current_user_v1';
+        let currentUser = null;
+        let registeredUsers = [];
+        let currentWallet = '0x71C95911E9a5D330f4D621842EC243EE134389A2';
+        let currentNotarizeMode = 'file'; // 'file' or 'text'
+        let stagedDocument = {
+            fileName: '',
+            fileSize: '',
+            sha256: ''
+        };
+        let latestNotarizedRecordId = null;
+        let activeCertificateRecord = null;
+        let currentBlockNum = 3;
+        let isRealMetaMaskConnected = false;
+
+        // Pre-populated sample blockchain records (Block #1 -> #3, linked to Genesis Block #0)
+        const DEFAULT_LEDGER = [
+            {
+                id: 'BN-1003',
+                fileName: 'Van_Ban_Thiet_Ke_He_Thong_v2.docx',
+                fileSize: '3.15 MB (application/docx)',
+                category: 'Bản quyền Sở hữu trí tuệ',
+                ownerName: 'Viện Nghiên Cứu Trí Tuệ Nhân Tạo AI-Lab',
+                note: 'Đăng ký bảo hộ quyền tác giả kiến trúc hệ thống & tài liệu đặc tả',
+                sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+                txHash: '0x6a0b8c9d2e4f1a3b5c7d9e0f2a4b6c8d1e3f5a7b9c0d2e4f6a8b1c3d5e7f9a0b',
+                wallet: '0x38F10299C8d7E221b4A910293FA10293847561C1',
+                blockNumber: 3,
+                gasFee: '0.00041 ETH',
+                timestamp: '2025-05-12 08:05:11'
+            },
+            {
+                id: 'BN-1002',
+                fileName: 'Bang_Tot_Nghiep_Ky_Su_CNTT_NguyenVanAn.pdf',
+                fileSize: '845.20 KB (application/pdf)',
+                category: 'Văn bằng / Chứng chỉ học thuật',
+                ownerName: 'Trường Đại học Công Nghệ Thông Tin',
+                note: 'Văn bằng số cấp đợt 1 năm 2025 - Số hiệu: ĐH-2025-8891',
+                sha256: '4a7d1ed414474e4033ac29ccb8653d9b00000000000000009a8b7c6d5e4f3a2b',
+                txHash: '0x3c1e7b9a4f2d8e6c0b5a9f1d3e7c5b8a2f4d6e0c1b3a5f7d9e2c4b6a8f0d1e2f',
+                wallet: '0x94A21055B2c8E110a9F331284BC910AA772144F9',
+                blockNumber: 2,
+                gasFee: '0.00039 ETH',
+                timestamp: '2025-05-11 14:30:18'
+            },
+            {
+                id: 'BN-1001',
+                fileName: 'Hop_Dong_Lao_Dong_Chinh_Thuc_TechCorp.pdf',
+                fileSize: '1.42 MB (application/pdf)',
+                category: 'Hợp đồng kinh tế / Pháp lý',
+                ownerName: 'Công ty Cổ phần Công nghệ TechCorp Việt Nam',
+                note: 'Bản gốc đã ký số bởi đại diện pháp luật và người lao động',
+                sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+                txHash: '0x8f9d2a6c4e1b7f0392a581c6d4e9b2f103847291a6b5c4d3e2f1a0b9c8d7e6f5',
+                wallet: '0x71C95911E9a5D330f4D621842EC243EE134389A2',
+                blockNumber: 1,
+                gasFee: '0.00044 ETH',
+                timestamp: '2025-05-10 09:15:42'
+            }
+        ];
+
+        let blockchainLedger = [];
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            initAuthAccounts();
+            loadLedgerFromStorage();
+            currentBlockNum = blockchainLedger.reduce((max, item) => Math.max(max, item.blockNumber), 0);
+            updateAuthUI();
+            updateWalletUI();
+            updateStatsAndBadges();
+            renderBlockchainChain();
+            renderExplorerTable();
+            renderMerkleTree();
+            setupDragAndDrop();
+        };
+
+        // --- AUTHENTICATION (REGISTER & LOGIN) ---
+        function initAuthAccounts() {
+            const defaultDemoUsers = [
+                {
+                    fullName: 'Nguyễn Văn An - Công Chứng Viên',
+                    role: 'Công chứng viên / Văn phòng công chứng',
+                    email: 'congchungvien@blocknotary.vn',
+                    password: '123456',
+                    wallet: '0x71C95911E9a5D330f4D621842EC243EE134389A2'
+                }
+            ];
+            try {
+                const savedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+                registeredUsers = savedUsers ? JSON.parse(savedUsers) : defaultDemoUsers;
+                if (!savedUsers) {
+                    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(registeredUsers));
+                }
+                const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
+                if (savedSession) {
+                    currentUser = JSON.parse(savedSession);
+                    if (currentUser && currentUser.wallet && !isRealMetaMaskConnected) {
+                        currentWallet = currentUser.wallet;
+                    }
+                }
+            } catch (e) {
+                registeredUsers = defaultDemoUsers;
+            }
+        }
+
+        function openAuthModal(mode = 'login') {
+            switchAuthTab(mode);
+            document.getElementById('authModal').classList.remove('hidden');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.add('hidden');
+        }
+
+        function switchAuthTab(mode) {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const loginTab = document.getElementById('authTab-login');
+            const registerTab = document.getElementById('authTab-register');
+
+            if (mode === 'login') {
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                loginTab.className = 'py-2 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition-all';
+                registerTab.className = 'py-2 rounded-lg text-slate-400 hover:text-white transition-all';
+            } else {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                registerTab.className = 'py-2 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 transition-all';
+                loginTab.className = 'py-2 rounded-lg text-slate-400 hover:text-white transition-all';
+            }
+        }
+
+        function handleRegisterSubmit(event) {
+            event.preventDefault();
+            const fullName = document.getElementById('regFullNameInput').value.trim();
+            const role = document.getElementById('regRoleInput').value;
+            const email = document.getElementById('regEmailInput').value.trim().toLowerCase();
+            const password = document.getElementById('regPasswordInput').value;
+            const confirmPassword = document.getElementById('regConfirmPasswordInput').value;
+
+            if (password !== confirmPassword) {
+                showToast('Mật khẩu xác nhận không khớp!', 'warning');
+                return;
+            }
+
+            if (registeredUsers.some(u => u.email === email)) {
+                showToast('Email này đã được đăng ký! Vui lòng chuyển sang Đăng nhập.', 'warning');
+                switchAuthTab('login');
+                document.getElementById('loginEmailInput').value = email;
+                return;
+            }
+
+            // Generate dedicated Web3 wallet address for this user
+            const hexChars = '0123456789ABCDEFabcdef';
+            let newWallet = '0x';
+            for (let i = 0; i < 40; i++) {
+                newWallet += hexChars[Math.floor(Math.random() * hexChars.length)];
+            }
+
+            const newUser = { fullName, role, email, password, wallet: newWallet };
+            registeredUsers.push(newUser);
+            try {
+                localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(registeredUsers));
+            } catch (e) {}
+
+            applyLoggedInUser(newUser);
+            closeAuthModal();
+            showToast(`Đăng ký thành công! Chào mừng ${fullName}`);
+        }
+
+        function handleLoginSubmit(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmailInput').value.trim().toLowerCase();
+            const password = document.getElementById('loginPasswordInput').value;
+
+            const foundUser = registeredUsers.find(u => u.email === email && u.password === password);
+            if (!foundUser) {
+                showToast('Email hoặc mật khẩu không chính xác!', 'warning');
+                return;
+            }
+
+            applyLoggedInUser(foundUser);
+            closeAuthModal();
+            showToast(`Đăng nhập thành công! Xin chào ${foundUser.fullName}`);
+        }
+
+        function quickDemoLogin() {
+            const demoAccount = registeredUsers[0];
+            if (!demoAccount) return;
+            applyLoggedInUser(demoAccount);
+            closeAuthModal();
+            showToast(`Đã đăng nhập tài khoản mẫu: ${demoAccount.fullName}`);
+        }
+
+        function applyLoggedInUser(user) {
+            currentUser = user;
+            try {
+                localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
+            } catch (e) {}
+
+            if (!isRealMetaMaskConnected && user.wallet) {
+                currentWallet = user.wallet;
+                updateWalletUI();
+            }
+
+            const ownerInput = document.getElementById('ownerNameInput');
+            if (ownerInput) {
+                ownerInput.value = user.fullName;
+            }
+            updateAuthUI();
+        }
+
+        function logoutUser() {
+            currentUser = null;
+            try {
+                localStorage.removeItem(SESSION_STORAGE_KEY);
+            } catch (e) {}
+            updateAuthUI();
+            showToast('Đã đăng xuất khỏi hệ thống!');
+        }
+
+        function updateAuthUI() {
+            const guestBox = document.getElementById('guestAuthButtons');
+            const userBox = document.getElementById('loggedInUserBadge');
+
+            if (currentUser) {
+                guestBox.classList.add('hidden');
+                userBox.classList.remove('hidden');
+                document.getElementById('headerUserName').textContent = currentUser.fullName;
+                document.getElementById('headerUserRole').textContent = currentUser.role;
+                document.getElementById('userAvatarInitial').textContent = currentUser.fullName.charAt(0).toUpperCase();
+            } else {
+                guestBox.classList.remove('hidden');
+                userBox.classList.add('hidden');
+            }
+        }
+
+        function loadLedgerFromStorage() {
+            try {
+                const savedLedger = localStorage.getItem(STORAGE_KEY);
+                if (savedLedger) {
+                    const parsed = JSON.parse(savedLedger);
+                    blockchainLedger = Array.isArray(parsed) && parsed.length > 0 ? parsed : [...DEFAULT_LEDGER];
+                } else {
+                    blockchainLedger = [...DEFAULT_LEDGER];
+                    saveLedgerToStorage();
+                }
+            } catch (e) {
+                console.error('Lỗi đọc dữ liệu sổ cái từ LocalStorage:', e);
+                blockchainLedger = [...DEFAULT_LEDGER];
+            }
+        }
+
+        function saveLedgerToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(blockchainLedger));
+            } catch (e) {
+                console.error('Không thể lưu vào LocalStorage:', e);
+            }
+        }
+
+        function resetDemoLedger() {
+            blockchainLedger = [...DEFAULT_LEDGER];
+            currentBlockNum = 3;
+            saveLedgerToStorage();
+            updateStatsAndBadges();
+            renderBlockchainChain();
+            renderExplorerTable();
+            renderMerkleTree();
+            showToast('Đã khôi phục dữ liệu mẫu mặc định từ Genesis Block #0!');
+        }
+
+        // --- TAB NAVIGATION ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all whitespace-nowrap border border-transparent';
+            });
+
+            const activeBtn = document.getElementById(`tabBtn-${tabId}`);
+            activeBtn.className = 'tab-btn flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap bg-cyan-500/15 text-cyan-400 border border-cyan-500/30';
+
+            if (tabId === 'explorer') {
+                renderBlockchainChain();
+                renderExplorerTable();
+                renderMerkleTree();
+            }
+        }
+
+        // --- CRYPTOGRAPHIC SHA-256 CALCULATION (WEB CRYPTO API) ---
+        async function computeSHA256FromBuffer(arrayBuffer) {
+            const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex;
+        }
+
+        async function computeSHA256FromString(str) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(str);
+            return await computeSHA256FromBuffer(data);
+        }
+
+        // --- TAB 1: FILE & TEXT SELECTION FOR NOTARIZATION ---
+        function setNotarizeMode(mode) {
+            currentNotarizeMode = mode;
+            const fileBox = document.getElementById('notarizeFileBox');
+            const textBox = document.getElementById('notarizeTextBox');
+            const btnFile = document.getElementById('modeBtn-file');
+            const btnText = document.getElementById('modeBtn-text');
+
+            if (mode === 'file') {
+                fileBox.classList.remove('hidden');
+                textBox.classList.add('hidden');
+                btnFile.className = 'px-3 py-1 rounded-md bg-cyan-500/20 text-cyan-300 font-medium transition-all';
+                btnText.className = 'px-3 py-1 rounded-md text-slate-400 hover:text-white transition-all';
+            } else {
+                fileBox.classList.add('hidden');
+                textBox.classList.remove('hidden');
+                btnText.className = 'px-3 py-1 rounded-md bg-cyan-500/20 text-cyan-300 font-medium transition-all';
+                btnFile.className = 'px-3 py-1 rounded-md text-slate-400 hover:text-white transition-all';
+                handleRawTextHash();
+            }
+        }
+
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            await processFileForNotarization(file);
+        }
+
+        async function processFileForNotarization(file) {
+            const badge = document.getElementById('hashStatusBadge');
+            badge.textContent = 'Đang băm SHA-256...';
+            badge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300';
+
+            const arrayBuffer = await file.arrayBuffer();
+            const sha256 = await computeSHA256FromBuffer(arrayBuffer);
+            const sizeFormatted = formatBytes(file.size) + ` (${file.type || 'binary'})`;
+
+            stagedDocument = {
+                fileName: file.name,
+                fileSize: sizeFormatted,
+                sha256: sha256
+            };
+
+            updateNotarizePreviewUI();
+        }
+
+        async function handleRawTextHash() {
+            const text = document.getElementById('rawTextInput').value;
+            if (!text.trim()) {
+                stagedDocument = { fileName: '', fileSize: '', sha256: '' };
+                updateNotarizePreviewUI();
+                return;
+            }
+            const sha256 = await computeSHA256FromString(text);
+            const byteLen = new TextEncoder().encode(text).length;
+
+            stagedDocument = {
+                fileName: `Van_Ban_Truc_Tiep_${new Date().toISOString().slice(0,10)}.txt`,
+                fileSize: `${byteLen} Bytes (text/plain)`,
+                sha256: sha256
+            };
+            updateNotarizePreviewUI();
+        }
+
+        // Quick Sample Document Generator for Demo
+        async function loadSampleDoc(type) {
+            let fileName = '';
+            let content = '';
+            let category = '';
+            let owner = '';
+            let note = '';
+
+            if (type === 'hopdong') {
+                fileName = 'Hop_Dong_Lao_Dong_2025.pdf';
+                content = 'HOP DONG LAO DONG SO 2025/HDLD - Ben A: Cong ty TechCorp - Ben B: Nguyen Van An - Muc luong: 35.000.000 VND - Ky ngay: ' + new Date().toLocaleDateString();
+                category = 'Hợp đồng kinh tế / Pháp lý';
+                owner = 'Phòng Nhân Sự & Pháp Chế - TechCorp';
+                note = 'Hợp đồng lao động không xác định thời hạn đã ký số';
+            } else if (type === 'bangcap') {
+                fileName = 'Bang_Tot_Nghiep_DH_CNTT.pdf';
+                content = 'BANG KY SU CONG NGHE THONG TIN - Ho ten: Tran Minh Hoang - Xep loai: Xuat Sac - So vao so: CNTT-2025-99812';
+                category = 'Văn bằng / Chứng chỉ học thuật';
+                owner = 'Hội Đồng Cấp Văn Bằng Trường ĐH CNTT';
+                note = 'Chứng thực văn bằng tốt nghiệp đại học chính quy';
+            } else {
+                fileName = 'Van_Ban_Thiet_Ke_He_Thong.docx';
+                content = 'TAI LIEU DAC TA KIEN TRUC HE THONG BLOCKCHAIN CONG CHUNG SO - Tac gia: Nhom Phat Trien - Phien ban 3.0';
+                category = 'Bản quyền Sở hữu trí tuệ';
+                owner = 'Viện Nghiên Cứu & Phát Triển Công Nghệ';
+                note = 'Bảo hộ quyền tác giả tài liệu thiết kế hệ thống';
+            }
+
+            const sha256 = await computeSHA256FromString(content);
+            stagedDocument = {
+                fileName: fileName,
+                fileSize: '428.50 KB (Tài liệu mẫu Demo)',
+                sha256: sha256
+            };
+
+            document.getElementById('ownerNameInput').value = owner;
+            document.getElementById('docCategoryInput').value = category;
+            document.getElementById('docNoteInput').value = note;
+
+            updateNotarizePreviewUI();
+            showToast(`Đã nạp tài liệu mẫu "${fileName}" và tính mã SHA-256!`);
+        }
+
+        function updateNotarizePreviewUI() {
+            const fnEl = document.getElementById('previewFileName');
+            const fsEl = document.getElementById('previewFileSize');
+            const hashEl = document.getElementById('previewSha256');
+            const badge = document.getElementById('hashStatusBadge');
+            const submitBtn = document.getElementById('notarizeSubmitBtn');
+
+            if (!stagedDocument.sha256) {
+                fnEl.textContent = '---';
+                fsEl.textContent = '---';
+                hashEl.textContent = 'Vui lòng chọn một tệp hoặc nhập văn bản để tính toán mã băm SHA-256...';
+                badge.textContent = 'Chưa có tệp';
+                badge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400';
+                submitBtn.disabled = true;
+                submitBtn.className = 'w-full py-3.5 px-6 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all bg-slate-800 text-slate-500 cursor-not-allowed';
+                return;
+            }
+
+            fnEl.textContent = stagedDocument.fileName;
+            fsEl.textContent = stagedDocument.fileSize;
+            hashEl.textContent = stagedDocument.sha256;
+
+            // Check if already notarized
+            const existing = blockchainLedger.find(r => r.sha256 === stagedDocument.sha256);
+            if (existing) {
+                badge.textContent = 'Đã tồn tại trên chuỗi khối';
+                badge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30';
+            } else {
+                badge.textContent = 'Sẵn sàng ghi chuỗi khối';
+                badge.className = 'text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+            }
+
+            submitBtn.disabled = false;
+            submitBtn.className = 'w-full py-3.5 px-6 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white shadow-lg shadow-cyan-500/25 cursor-pointer active:scale-98';
+        }
+
+        // --- SUBMIT TO BLOCKCHAIN (MINING SIMULATION) ---
+        async function notarizeToBlockchain() {
+            if (!stagedDocument.sha256) return;
+
+            // Check duplicate hash
+            const duplicate = blockchainLedger.find(r => r.sha256 === stagedDocument.sha256);
+            if (duplicate) {
+                showToast('Tài liệu có mã SHA-256 này đã được công chứng trước đó ở Block #' + duplicate.blockNumber, 'warning');
+                openCertificateModal(duplicate.id);
+                return;
+            }
+
+            const ownerName = document.getElementById('ownerNameInput').value.trim() || 'Chủ sở hữu ẩn danh';
+            const category = document.getElementById('docCategoryInput').value;
+            const note = document.getElementById('docNoteInput').value.trim() || 'Bản gốc toàn vẹn đã đối chiếu mã băm SHA-256';
+
+            const miningBox = document.getElementById('miningProgressBox');
+            const miningStep = document.getElementById('miningStepText');
+            const miningPercent = document.getElementById('miningPercent');
+            const miningBar = document.getElementById('miningBar');
+            const submitBtn = document.getElementById('notarizeSubmitBtn');
+
+            submitBtn.disabled = true;
+            miningBox.classList.remove('hidden');
+
+            // Step 1
+            miningStep.textContent = 'Đang ký số giao dịch bằng ví ' + shortenAddress(currentWallet) + '...';
+            miningPercent.textContent = '30%';
+            miningBar.style.width = '30%';
+            await sleep(550);
+
+            // Step 2
+            miningStep.textContent = 'Đang phát tán giao dịch tới các nút mạng (Mempool)...';
+            miningPercent.textContent = '65%';
+            miningBar.style.width = '65%';
+            await sleep(600);
+
+            // Step 3
+            miningStep.textContent = 'Đang đóng gói khối & cập nhật Merkle Root...';
+            miningPercent.textContent = '95%';
+            miningBar.style.width = '95%';
+            await sleep(550);
+
+            // Finalize Transaction
+            currentBlockNum += 1;
+            const txHash = '0x' + await computeSHA256FromString(stagedDocument.sha256 + Date.now() + currentWallet);
+            const gasFee = (0.00035 + Math.random() * 0.00018).toFixed(5) + ' ETH';
+            const nowStr = formatTimestamp(new Date());
+            const newId = 'BN-' + (1000 + blockchainLedger.length + 1);
+
+            const newRecord = {
+                id: newId,
+                fileName: stagedDocument.fileName,
+                fileSize: stagedDocument.fileSize,
+                category: category,
+                ownerName: ownerName,
+                note: note,
+                sha256: stagedDocument.sha256,
+                txHash: txHash,
+                wallet: currentWallet,
+                blockNumber: currentBlockNum,
+                gasFee: gasFee,
+                timestamp: nowStr
+            };
+
+            blockchainLedger.unshift(newRecord);
+            saveLedgerToStorage();
+            latestNotarizedRecordId = newId;
+
+            miningBox.classList.add('hidden');
+            updateStatsAndBadges();
+            updateNotarizePreviewUI();
+
+            // Show Success Banner
+            document.getElementById('latestTxBanner').classList.remove('hidden');
+            document.getElementById('latestTxBlock').textContent = `Block #${currentBlockNum} • Gas: ${gasFee}`;
+            document.getElementById('latestTxHash').textContent = txHash;
+            document.getElementById('latestDocHash').textContent = newRecord.sha256;
+
+            showToast('Đã ghi nhận công chứng tài liệu lên Blockchain thành công!');
+            openCertificateModal(newId);
+        }
+
+        // --- TAB 2: VERIFICATION LOGIC ---
+        async function handleVerifyFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('verifySelectedFileName').innerHTML = `<span class="text-cyan-400 font-semibold"><i class="fa-solid fa-file-circle-check mr-1"></i>Đã chọn: ${file.name} (${formatBytes(file.size)})</span>`;
+
+            const arrayBuffer = await file.arrayBuffer();
+            const sha256 = await computeSHA256FromBuffer(arrayBuffer);
+            document.getElementById('verifyHashInput').value = sha256;
+            verifyDocumentHash(sha256);
+        }
+
+        function verifyByHashInput() {
+            const inputVal = document.getElementById('verifyHashInput').value.trim().toLowerCase();
+            if (!inputVal) {
+                showToast('Vui lòng nhập mã SHA-256 hoặc Transaction Hash để tra cứu!', 'warning');
+                return;
+            }
+            verifyDocumentHash(inputVal);
+        }
+
+        function verifyDocumentHash(hashOrTx) {
+            const cleanQuery = hashOrTx.toLowerCase();
+            const match = blockchainLedger.find(
+                item => item.sha256.toLowerCase() === cleanQuery || item.txHash.toLowerCase() === cleanQuery
+            );
+
+            const defaultBox = document.getElementById('verifyResultDefault');
+            const successBox = document.getElementById('verifyResultSuccess');
+            const failedBox = document.getElementById('verifyResultFailed');
+
+            defaultBox.classList.add('hidden');
+
+            if (match) {
+                failedBox.classList.add('hidden');
+                successBox.classList.remove('hidden');
+
+                document.getElementById('vSuccessDocName').textContent = match.fileName;
+                document.getElementById('vSuccessCategory').textContent = match.category;
+                document.getElementById('vSuccessOwner').textContent = match.ownerName;
+                document.getElementById('vSuccessWallet').textContent = match.wallet;
+                document.getElementById('vSuccessTime').textContent = `Block #${match.blockNumber} • ${match.timestamp}`;
+                document.getElementById('vSuccessHash').textContent = match.sha256;
+                document.getElementById('vSuccessTx').textContent = match.txHash;
+
+                const certBtn = document.getElementById('vSuccessCertBtn');
+                certBtn.onclick = () => openCertificateModal(match.id);
+
+                showToast('Xác thực thành công: Tài liệu hoàn toàn nguyên vẹn!');
+            } else {
+                successBox.classList.add('hidden');
+                failedBox.classList.remove('hidden');
+                document.getElementById('vFailedHash').textContent = hashOrTx;
+                showToast('Cảnh báo: Không tìm thấy bản ghi khớp trên Blockchain!', 'warning');
+            }
+        }
+
+        async function simulateVerification(isIntact) {
+            const latestDoc = blockchainLedger[0];
+            if (!latestDoc) return;
+
+            if (isIntact) {
+                document.getElementById('verifySelectedFileName').innerHTML = `<span class="text-emerald-400 font-semibold"><i class="fa-solid fa-check-circle mr-1"></i>Đang kiểm tra bản gốc: ${latestDoc.fileName}</span>`;
+                document.getElementById('verifyHashInput').value = latestDoc.sha256;
+                verifyDocumentHash(latestDoc.sha256);
+            } else {
+                const tamperedHash = await computeSHA256FromString(latestDoc.sha256 + '_TAMPERED_1_BYTE');
+                document.getElementById('verifySelectedFileName').innerHTML = `<span class="text-rose-400 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Mô phỏng tệp bị sửa 1 ký tự: ${latestDoc.fileName}</span>`;
+                document.getElementById('verifyHashInput').value = tamperedHash;
+                verifyDocumentHash(tamperedHash);
+            }
+        }
+
+        // --- TAB 3: BLOCKCHAIN CHAIN, EXPLORER TABLE & MERKLE TREE VISUALIZER ---
+        async function renderBlockchainChain() {
+            const container = document.getElementById('blockchainChainContainer');
+            if (!container) return;
+
+            // Sort ascending by blockNumber starting from Genesis Block #0
+            const sortedAsc = [...blockchainLedger].sort((a, b) => a.blockNumber - b.blockNumber);
+            let prevHash = '0000000000000000000000000000000000000000000000000000000000000000';
+            const genesisHash = await computeSHA256FromString('GENESIS_BLOCK_0_BLOCKNOTARY_2025');
+
+            let blocksHtml = `
+                <div class="min-w-[250px] p-4 rounded-2xl bg-slate-900/90 border border-amber-500/40 shrink-0 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-mono text-xs font-bold">GENESIS BLOCK #0</span>
+                            <span class="text-[10px] font-mono text-slate-400">Khối Khởi Thủy</span>
+                        </div>
+                        <p class="text-[11px] text-slate-300 mb-2">Khối gốc khởi tạo mạng lưới BlockNotary</p>
+                        <div class="space-y-1 text-[10px] font-mono">
+                            <p class="text-slate-500 truncate">PrevHash: 0x0000...0000</p>
+                            <p class="text-amber-300 truncate">Hash: 0x${genesisHash.slice(0, 14)}...</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-slate-800 text-[10px] font-mono text-slate-400">
+                        2025-05-01 00:00:00
+                    </div>
+                </div>
+            `;
+
+            prevHash = genesisHash;
+
+            for (const item of sortedAsc) {
+                const blockHash = await computeSHA256FromString(prevHash + item.sha256 + item.blockNumber);
+                blocksHtml += `
+                    <div class="flex items-center shrink-0 text-cyan-500/60">
+                        <i class="fa-solid fa-arrow-right-long text-lg"></i>
+                    </div>
+                    <div onclick="openCertificateModal('${item.id}')" class="min-w-[270px] p-4 rounded-2xl bg-slate-900/90 hover:bg-slate-800/90 border border-cyan-500/30 hover:border-cyan-400 cursor-pointer shrink-0 flex flex-col justify-between transition-all">
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="px-2.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 font-mono text-xs font-bold">BLOCK #${item.blockNumber}</span>
+                                <span class="text-[10px] font-mono text-emerald-400">${item.gasFee || '0.00042 ETH'}</span>
+                            </div>
+                            <p class="text-xs font-bold text-white truncate mb-1" title="${item.fileName}">${item.fileName}</p>
+                            <p class="text-[11px] text-slate-400 truncate mb-2">${item.ownerName}</p>
+                            <div class="space-y-1 text-[10px] font-mono bg-slate-950/70 p-2 rounded-lg border border-slate-800">
+                                <p class="text-purple-300 truncate">Prev: 0x${prevHash.slice(0, 14)}...</p>
+                                <p class="text-emerald-400 truncate">Hash: 0x${blockHash.slice(0, 14)}...</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] font-mono text-slate-400">
+                            <span>${item.timestamp}</span>
+                            <span class="text-cyan-400">Xem chứng chỉ →</span>
+                        </div>
+                    </div>
+                `;
+                prevHash = blockHash;
+            }
+
+            container.innerHTML = blocksHtml;
+        }
+
+        function renderExplorerTable() {
+            const tbody = document.getElementById('explorerTableBody');
+            const filter = (document.getElementById('explorerSearchInput')?.value || '').toLowerCase();
+
+            const filtered = blockchainLedger.filter(item => {
+                return item.fileName.toLowerCase().includes(filter) ||
+                       item.sha256.toLowerCase().includes(filter) ||
+                       item.ownerName.toLowerCase().includes(filter) ||
+                       item.wallet.toLowerCase().includes(filter);
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-500">Không tìm thấy bản ghi công chứng nào phù hợp.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(item => `
+                <tr class="hover:bg-slate-900/70 transition-all">
+                    <td class="py-3.5 px-4 font-mono text-cyan-400 font-semibold">
+                        #${item.blockNumber}
+                        <span class="block text-[10px] text-slate-500">${item.id}</span>
+                    </td>
+                    <td class="py-3.5 px-4">
+                        <p class="font-bold text-white truncate max-w-[220px]" title="${item.fileName}">${item.fileName}</p>
+                        <span class="text-[11px] text-purple-300">${item.category}</span>
+                    </td>
+                    <td class="py-3.5 px-4 font-mono">
+                        <div class="flex items-center gap-2">
+                            <span class="text-emerald-400" title="${item.sha256}">${item.sha256.slice(0, 14)}...${item.sha256.slice(-10)}</span>
+                            <button onclick="copyRawText('${item.sha256}')" class="text-slate-500 hover:text-cyan-400" title="Copy SHA-256">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                        <span class="block text-[10px] text-slate-500">Tx: ${item.txHash.slice(0, 12)}...</span>
+                    </td>
+                    <td class="py-3.5 px-4">
+                        <p class="text-slate-200 font-medium truncate max-w-[180px]">${item.ownerName}</p>
+                        <span class="font-mono text-[11px] text-cyan-400">${shortenAddress(item.wallet)}</span>
+                    </td>
+                    <td class="py-3.5 px-4 font-mono text-slate-300 whitespace-nowrap">
+                        ${item.timestamp}
+                    </td>
+                    <td class="py-3.5 px-4 text-right">
+                        <button onclick="openCertificateModal('${item.id}')" class="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 font-semibold transition-all">
+                            <i class="fa-solid fa-award mr-1"></i> Chứng Chỉ
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function renderMerkleTree() {
+            const container = document.getElementById('merkleTreeContainer');
+            // Take up to 4 latest documents to build a clean visual 3-level Merkle Tree
+            const docs = blockchainLedger.slice(0, 4);
+            while (docs.length < 4) {
+                docs.push(docs[docs.length - 1]); // Duplicate last leaf if odd/fewer than 4 (standard Merkle padding)
+            }
+
+            const leafHashes = docs.map(d => d.sha256);
+            const branchAB = await computeSHA256FromString(leafHashes[0] + leafHashes[1]);
+            const branchCD = await computeSHA256FromString(leafHashes[2] + leafHashes[3]);
+            const merkleRoot = await computeSHA256FromString(branchAB + branchCD);
+
+            container.innerHTML = `
+                <div class="min-w-[680px] flex flex-col items-center space-y-6">
+                    <!-- Level 1: Merkle Root -->
+                    <div class="flex flex-col items-center">
+                        <div class="px-5 py-3 rounded-2xl bg-gradient-to-r from-purple-900/60 to-cyan-900/60 border-2 border-cyan-400 shadow-lg shadow-cyan-500/10 text-center max-w-md">
+                            <span class="text-[10px] font-mono uppercase tracking-widest text-cyan-300 block">MERKLE ROOT (Lưu trong Block Header)</span>
+                            <p class="font-mono text-xs font-bold text-white mt-1">${merkleRoot.slice(0, 24)}...${merkleRoot.slice(-16)}</p>
+                        </div>
+                        <div class="h-6 w-0.5 bg-cyan-500/50"></div>
+                        <div class="w-1/2 h-0.5 bg-cyan-500/50"></div>
+                    </div>
+
+                    <!-- Level 2: Intermediate Branches -->
+                    <div class="grid grid-cols-2 gap-12 w-full max-w-3xl">
+                        <div class="flex flex-col items-center">
+                            <div class="px-4 py-2.5 rounded-xl bg-slate-900 border border-purple-500/40 text-center w-full">
+                                <span class="text-[10px] font-mono text-purple-300 block">Nhánh Băm Hash(L1 + L2)</span>
+                                <p class="font-mono text-xs text-slate-200 mt-0.5">${branchAB.slice(0, 16)}...${branchAB.slice(-10)}</p>
+                            </div>
+                            <div class="h-5 w-0.5 bg-purple-500/40"></div>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="px-4 py-2.5 rounded-xl bg-slate-900 border border-purple-500/40 text-center w-full">
+                                <span class="text-[10px] font-mono text-purple-300 block">Nhánh Băm Hash(L3 + L4)</span>
+                                <p class="font-mono text-xs text-slate-200 mt-0.5">${branchCD.slice(0, 16)}...${branchCD.slice(-10)}</p>
+                            </div>
+                            <div class="h-5 w-0.5 bg-purple-500/40"></div>
+                        </div>
+                    </div>
+
+                    <!-- Level 3: Document Leaf Nodes -->
+                    <div class="grid grid-cols-4 gap-4 w-full">
+                        ${docs.map((doc, idx) => `
+                            <div class="p-3 rounded-xl bg-slate-900/90 border border-emerald-500/30 text-center">
+                                <span class="text-[10px] font-mono text-emerald-400 font-bold block">Lá #${idx + 1} (${doc.id})</span>
+                                <p class="text-[11px] font-semibold text-white truncate mt-0.5" title="${doc.fileName}">${doc.fileName}</p>
+                                <p class="font-mono text-[10px] text-slate-400 mt-1">${doc.sha256.slice(0, 10)}...${doc.sha256.slice(-8)}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- CERTIFICATE MODAL ---
+        function openCertificateModal(recordId) {
+            const record = blockchainLedger.find(r => r.id === recordId) || blockchainLedger[0];
+            if (!record) return;
+            activeCertificateRecord = record;
+
+            document.getElementById('certIdDisplay').textContent = `ID: #${record.id}`;
+            document.getElementById('certFileName').textContent = record.fileName;
+            document.getElementById('certCategory').textContent = record.category;
+            document.getElementById('certFileSize').textContent = record.fileSize;
+            document.getElementById('certOwner').textContent = record.ownerName;
+            document.getElementById('certNote').textContent = record.note;
+            document.getElementById('certDocHash').textContent = record.sha256;
+            document.getElementById('certTxHash').textContent = record.txHash;
+            document.getElementById('certBlockNumber').textContent = `#${record.blockNumber} (${record.gasFee || '0.00042 ETH'})`;
+            document.getElementById('certTimestamp').textContent = record.timestamp;
+            document.getElementById('certWallet').textContent = shortenAddress(record.wallet);
+
+            document.getElementById('certificateModal').classList.remove('hidden');
+        }
+
+        function downloadCertificateJSON() {
+            if (!activeCertificateRecord) return;
+            const certPayload = {
+                system: 'BlockNotary - Hệ Thống Công Chứng Tài Liệu Số Bằng Blockchain',
+                network: 'Ethereum Sepolia Testnet (SHA-256 Proof)',
+                certificateId: activeCertificateRecord.id,
+                document: {
+                    fileName: activeCertificateRecord.fileName,
+                    fileSize: activeCertificateRecord.fileSize,
+                    category: activeCertificateRecord.category,
+                    sha256Hash: activeCertificateRecord.sha256
+                },
+                notarization: {
+                    ownerName: activeCertificateRecord.ownerName,
+                    note: activeCertificateRecord.note,
+                    signerWallet: activeCertificateRecord.wallet,
+                    transactionHash: activeCertificateRecord.txHash,
+                    blockNumber: activeCertificateRecord.blockNumber,
+                    gasFee: activeCertificateRecord.gasFee || '0.00042 ETH',
+                    timestamp: activeCertificateRecord.timestamp
+                }
+            };
+            const blob = new Blob([JSON.stringify(certPayload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Chung_Chi_BlockNotary_${activeCertificateRecord.id}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Đã tải xuống tệp Chứng thư số JSON!');
+        }
+
+        function closeCertificateModal() {
+            document.getElementById('certificateModal').classList.add('hidden');
+        }
+
+        // --- WALLET MANAGEMENT ---
+        function openWalletModal() {
+            document.getElementById('modalCurrentWallet').textContent = currentWallet;
+            document.getElementById('walletModal').classList.remove('hidden');
+        }
+
+        function closeWalletModal() {
+            document.getElementById('walletModal').classList.add('hidden');
+        }
+
+        async function connectRealMetaMask() {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    if (accounts && accounts.length > 0) {
+                        currentWallet = accounts[0];
+                        isRealMetaMaskConnected = true;
+                        updateWalletUI();
+                        closeWalletModal();
+                        showToast('Đã kết nối thành công với ví MetaMask thật!');
+                    }
+                } catch (err) {
+                    showToast('Người dùng từ chối kết nối MetaMask hoặc có lỗi xảy ra.', 'warning');
+                }
+            } else {
+                showToast('Trình duyệt chưa cài đặt MetaMask! Đã chuyển sang Ví Demo (Sepolia Testnet) để bạn tiếp tục demo.', 'warning');
+                generateSimulatedWallet();
+            }
+        }
+
+        function generateSimulatedWallet() {
+            const hexChars = '0123456789ABCDEFabcdef';
+            let addr = '0x';
+            for (let i = 0; i < 40; i++) {
+                addr += hexChars[Math.floor(Math.random() * hexChars.length)];
+            }
+            currentWallet = addr;
+            isRealMetaMaskConnected = false;
+            updateWalletUI();
+            closeWalletModal();
+            showToast('Đã kích hoạt Ví Demo (Sepolia Testnet): ' + shortenAddress(currentWallet));
+        }
+
+        function updateWalletUI() {
+            const short = shortenAddress(currentWallet);
+            const label = isRealMetaMaskConnected ? `MetaMask: ${short}` : `Ví Demo: ${short}`;
+            document.getElementById('walletBtnText').textContent = label;
+            document.getElementById('previewWallet').textContent = short;
+            document.getElementById('modalCurrentWallet').textContent = currentWallet;
+        }
+
+        // --- UTILITIES ---
+        function updateStatsAndBadges() {
+            const total = blockchainLedger.length;
+            document.getElementById('statTotalDocs').textContent = total;
+            document.getElementById('ledgerBadge').textContent = total;
+            document.getElementById('currentBlockHeight').textContent = `Block #${currentBlockNum}`;
+        }
+
+        function setupDragAndDrop() {
+            const dropzone = document.getElementById('dropzone');
+            if (!dropzone) return;
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+
+            dropzone.addEventListener('dragover', () => dropzone.classList.add('border-cyan-400', 'bg-slate-900/90'));
+            dropzone.addEventListener('dragleave', () => dropzone.classList.remove('border-cyan-400', 'bg-slate-900/90'));
+            dropzone.addEventListener('drop', async (e) => {
+                dropzone.classList.remove('border-cyan-400', 'bg-slate-900/90');
+                const files = e.dataTransfer.files;
+                if (files && files.length > 0) {
+                    await processFileForNotarization(files[0]);
+                }
+            });
+        }
+
+        function shortenAddress(addr) {
+            if (!addr || addr.length < 12) return addr;
+            return addr.slice(0, 6) + '...' + addr.slice(-4);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatTimestamp(date) {
+            const pad = n => String(n).padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+        }
+
+        function copyText(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            copyRawText(text);
+        }
+
+        function copySolidityCode() {
+            const code = document.getElementById('solidityCodeBlock').textContent;
+            copyRawText(code);
+        }
+
+        function copyRawText(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showToast('Đã sao chép vào bộ nhớ tạm (Clipboard)!');
+        }
+
+        function showToast(message, type = 'success') {
+            const box = document.getElementById('toastBox');
+            const msg = document.getElementById('toastMessage');
+            const icon = document.getElementById('toastIcon');
+
+            msg.textContent = message;
+            if (type === 'warning') {
+                icon.className = 'fa-solid fa-triangle-exclamation text-amber-400 text-base';
+            } else {
+                icon.className = 'fa-solid fa-circle-check text-emerald-400 text-base';
+            }
+
+            box.classList.remove('hidden');
+            clearTimeout(window.toastTimer);
+            window.toastTimer = setTimeout(() => {
+                box.classList.add('hidden');
+            }, 3500);
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
